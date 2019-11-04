@@ -74,12 +74,10 @@ void AddLlinePoints(POINT p1, POINT p2)
 	g_veclinePts.push_back(p2);
 }
 
-void GetCurve(wchar_t ch, int nCount, unsigned char* pBuffer, POINT ptOrigin, TEXTMETRIC& tm)
+void GetCurve(int nCount, unsigned char* pBuffer, POINT ptOrigin, TEXTMETRIC& tm)
 {
 	while (nCount > 0)
 	{
-		std::vector<POINT> vecBezierPts;
-		std::vector<POINT> vecPolylinePts;
 		TTPOLYGONHEADER* Header = (TTPOLYGONHEADER*)pBuffer;
 		DWORD Start = (DWORD)pBuffer + sizeof(TTPOLYGONHEADER);
 		DWORD dwRemine = Header->cb - sizeof(TTPOLYGONHEADER);
@@ -87,6 +85,8 @@ void GetCurve(wchar_t ch, int nCount, unsigned char* pBuffer, POINT ptOrigin, TE
 		POINTFX ptInit = ptStart;
 		while (dwRemine > 0)
 		{
+			std::vector<POINT> vecBezierPts;
+			std::vector<POINT> vecPolylinePts;
 			TTPOLYCURVE* pCurve = (TTPOLYCURVE*)Start;
 
 			POINT* pts = new POINT[pCurve->cpfx + 1];
@@ -110,6 +110,15 @@ void GetCurve(wchar_t ch, int nCount, unsigned char* pBuffer, POINT ptOrigin, TE
 
 			delete[] pts;
 
+			if (vecPolylinePts.size() > 0)
+			{
+				g_vecPolylinePts.push_back(vecPolylinePts);
+			}
+			if (vecBezierPts.size() > 0)
+			{
+				g_vecBezierPts.push_back(vecBezierPts);
+			}
+
 			ptStart = pCurve->apfx[pCurve->cpfx - 1];
 			Start += sizeof(TTPOLYCURVE) + (pCurve->cpfx - 1) * sizeof(POINTFX);
 			dwRemine -= sizeof(TTPOLYCURVE) + (pCurve->cpfx - 1) * sizeof(POINTFX);
@@ -127,15 +136,6 @@ void GetCurve(wchar_t ch, int nCount, unsigned char* pBuffer, POINT ptOrigin, TE
 		ptInit = ptStart;
 		pBuffer += Header->cb;
 		nCount -= Header->cb;
-
-		if (vecPolylinePts.size() > 0)
-		{
-			g_vecPolylinePts.push_back(vecPolylinePts);
-		}
-		if (vecBezierPts.size() > 0)
-		{
-			g_vecPolylinePts.push_back(vecBezierPts);
-		}
 	}
 }
 
@@ -185,9 +185,9 @@ void __stdcall SetText(HDC hdc, int x, int y, const char* str, const char* szFon
 		{
 			unsigned char* pBuf = new unsigned char[nCount];
 			GetGlyphOutline(hdc, wstr[i], GGO_BEZIER, &gm, nCount, pBuf, &mat);
+			GetCurve(nCount, pBuf, ptOrigin, tm);
 			ptOrigin.x += gm.gmCellIncX;
-			ptOrigin.y += gm.gmBlackBoxY;
-			GetCurve(wstr[i], nCount, pBuf, ptOrigin, tm);
+			ptOrigin.y += gm.gmCellIncY;
 			delete[] pBuf;
 		}
 	}
