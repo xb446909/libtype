@@ -1,0 +1,10 @@
+LIBRARY
+
+EXPORTS
+SetText
+GetBezierPointsCount
+GetPolylinePointsCount
+GetLinePointsCount
+GetBezierPoint
+GetPolylinePoint
+GetlinePoint
