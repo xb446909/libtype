@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 
-std::vector<POINT> g_vecBezierPts;
-std::vector<POINT> g_vecPolylinePts;
+std::vector<std::vector<POINT>> g_vecBezierPts;
+std::vector<std::vector<POINT>> g_vecPolylinePts;
 std::vector<POINT> g_veclinePts;
 
 
@@ -52,19 +52,19 @@ POINT GetPoint(POINTFX point, TEXTMETRIC& tm, POINT Origin)
 	return p;
 }
 
-void AddBezierPoints(POINT* pts, int nCount)
+void AddBezierPoints(std::vector<POINT>& vec, POINT* pts, int nCount)
 {
 	for (int i = 0; i < nCount; i++)
 	{
-		g_vecBezierPts.push_back(pts[i]);
+		vec.push_back(pts[i]);
 	}
 }
 
-void AddPolylinePoints(POINT* pts, int nCount)
+void AddPolylinePoints(std::vector<POINT>& vec, POINT* pts, int nCount)
 {
 	for (int i = 0; i < nCount; i++)
 	{
-		g_vecPolylinePts.push_back(pts[i]);
+		vec.push_back(pts[i]);
 	}
 }
 
@@ -78,6 +78,8 @@ void GetCurve(wchar_t ch, int nCount, unsigned char* pBuffer, POINT ptOrigin, TE
 {
 	while (nCount > 0)
 	{
+		std::vector<POINT> vecBezierPts;
+		std::vector<POINT> vecPolylinePts;
 		TTPOLYGONHEADER* Header = (TTPOLYGONHEADER*)pBuffer;
 		DWORD Start = (DWORD)pBuffer + sizeof(TTPOLYGONHEADER);
 		DWORD dwRemine = Header->cb - sizeof(TTPOLYGONHEADER);
@@ -97,13 +99,11 @@ void GetCurve(wchar_t ch, int nCount, unsigned char* pBuffer, POINT ptOrigin, TE
 			switch (pCurve->wType)
 			{
 			case TT_PRIM_LINE:
-				AddPolylinePoints(pts, pCurve->cpfx + 1);
+				AddPolylinePoints(vecPolylinePts, pts, pCurve->cpfx + 1);
 				break;
 			case TT_PRIM_CSPLINE:
-			{
-				AddBezierPoints(pts, pCurve->cpfx + 1);
+				AddBezierPoints(vecBezierPts, pts, pCurve->cpfx + 1);
 				break;
-			}
 			default:
 				break;
 			}
@@ -127,6 +127,15 @@ void GetCurve(wchar_t ch, int nCount, unsigned char* pBuffer, POINT ptOrigin, TE
 		ptInit = ptStart;
 		pBuffer += Header->cb;
 		nCount -= Header->cb;
+
+		if (vecPolylinePts.size() > 0)
+		{
+			g_vecPolylinePts.push_back(vecPolylinePts);
+		}
+		if (vecBezierPts.size() > 0)
+		{
+			g_vecPolylinePts.push_back(vecBezierPts);
+		}
 	}
 }
 
@@ -188,14 +197,32 @@ void __stdcall SetText(HDC hdc, int x, int y, const char* str, const char* szFon
 	DeleteObject(hFont);
 }
 
-int __stdcall GetBezierPointsCount()
+int __stdcall GetBezierCount()
 {
 	return g_vecBezierPts.size();
 }
 
-int __stdcall GetPolylinePointsCount()
+int __stdcall GetBezierPointsCount(int bezierIndex)
+{
+	if ((bezierIndex < 0) || (bezierIndex > g_vecBezierPts.size() - 1))
+	{
+		return -1;
+	}
+	return g_vecBezierPts[bezierIndex].size();
+}
+
+int __stdcall GetPolylineCount()
 {
 	return g_vecPolylinePts.size();
+}
+
+int __stdcall GetPolylinePointsCount(int polylineIndex)
+{
+	if ((polylineIndex < 0) || (polylineIndex > g_vecPolylinePts.size() - 1))
+	{
+		return -1;
+	}
+	return g_vecPolylinePts[polylineIndex].size();
 }
 
 int __stdcall GetLinePointsCount()
@@ -203,26 +230,34 @@ int __stdcall GetLinePointsCount()
 	return (g_veclinePts.size() / 2);
 }
 
-void __stdcall GetBezierPoint(int idx, int* x, int* y)
+void __stdcall GetBezierPoint(int bezierIndex, int ptIndex, int* x, int* y)
 {
-	if ((idx < 0) || (idx > g_vecBezierPts.size() - 1))
+	if ((bezierIndex < 0) || (bezierIndex > g_vecBezierPts.size() - 1))
+	{
+		return;
+	}
+	if ((ptIndex < 0) || (ptIndex > g_vecBezierPts[bezierIndex].size() - 1))
 	{
 		return;
 	}
 
-	*x = g_vecBezierPts[idx].x;
-	*y = g_vecBezierPts[idx].y;
+	*x = g_vecBezierPts[bezierIndex][ptIndex].x;
+	*y = g_vecBezierPts[bezierIndex][ptIndex].y;
 }
 
-void __stdcall GetPolylinePoint(int idx, int* x, int* y)
+void __stdcall GetPolylinePoint(int polylineIndex, int ptIndex, int* x, int* y)
 {
-	if ((idx < 0) || (idx > g_vecPolylinePts.size() - 1))
+	if ((polylineIndex < 0) || (polylineIndex > g_vecPolylinePts.size() - 1))
+	{
+		return;
+	}
+	if ((ptIndex < 0) || (ptIndex > g_vecPolylinePts[polylineIndex].size() - 1))
 	{
 		return;
 	}
 
-	*x = g_vecPolylinePts[idx].x;
-	*y = g_vecPolylinePts[idx].y;
+	*x = g_vecPolylinePts[polylineIndex][ptIndex].x;
+	*y = g_vecPolylinePts[polylineIndex][ptIndex].y;
 }
 
 void __stdcall GetlinePoint(int idx, int* x1, int* y1, int* x2, int* y2)
@@ -233,7 +268,7 @@ void __stdcall GetlinePoint(int idx, int* x1, int* y1, int* x2, int* y2)
 	}
 
 	*x1 = g_veclinePts[idx * 2].x;
-	*y1 = g_vecPolylinePts[idx * 2].y;
+	*y1 = g_veclinePts[idx * 2].y;
 	*x2 = g_veclinePts[idx * 2 + 1].x;
-	*y2 = g_vecPolylinePts[idx * 2 + 1].y;
+	*y2 = g_veclinePts[idx * 2 + 1].y;
 }

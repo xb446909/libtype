@@ -2,7 +2,9 @@ LIBRARY
 
 EXPORTS
 SetText
+GetBezierCount
 GetBezierPointsCount
+GetPolylineCount
 GetPolylinePointsCount
 GetLinePointsCount
 GetBezierPoint
