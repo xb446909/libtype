@@ -140,11 +140,13 @@ void GetCurve(int nCount, unsigned char* pBuffer, POINT ptOrigin, TEXTMETRIC& tm
 }
 
 
-void __stdcall SetText(HDC hdc, int x, int y, const char* str, const char* szFont, int nHeight, bool bBold, bool bItalic, bool bUnderline)
+void __stdcall SetText(HWND hwnd, int x, int y, const char* str, const char* szFont, int nHeight, bool bBold, bool bItalic, bool bUnderline)
 {
 	g_vecBezierPts.clear();
 	g_vecPolylinePts.clear();
 	g_veclinePts.clear();
+
+	HDC hdc = GetDC(hwnd);
 
 	HFONT hFont = CreateFontA(
 		nHeight,
@@ -195,6 +197,8 @@ void __stdcall SetText(HDC hdc, int x, int y, const char* str, const char* szFon
 
 	SelectObject(hdc, hOldFont);
 	DeleteObject(hFont);
+
+	ReleaseDC(hwnd, hdc);
 }
 
 int __stdcall GetBezierCount()
