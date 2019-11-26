@@ -1,6 +1,6 @@
 #pragma once
 
-void __stdcall SetText(HWND hwnd, int x, int y, const char* str, const char* szFont, int nHeight, bool bBold, bool bItalic, bool bUnderline);
+void __stdcall SetText(int x, int y, const char* str, const char* szFont, int nHeight, bool bBold, bool bItalic, bool bUnderline);
 int __stdcall GetBezierCount();
 int __stdcall GetBezierPointsCount(int bezierIndex);
 int __stdcall GetPolylineCount();

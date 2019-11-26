@@ -79,15 +79,15 @@ void GetCurve(int nCount, unsigned char* pBuffer, POINT ptOrigin, TEXTMETRIC& tm
 	while (nCount > 0)
 	{
 		TTPOLYGONHEADER* Header = (TTPOLYGONHEADER*)pBuffer;
-		DWORD Start = (DWORD)pBuffer + sizeof(TTPOLYGONHEADER);
-		DWORD dwRemine = Header->cb - sizeof(TTPOLYGONHEADER);
+		DWORD64 pStart = (DWORD64)pBuffer + sizeof(TTPOLYGONHEADER);
+		DWORD64 dwRemine = Header->cb - sizeof(TTPOLYGONHEADER);
 		POINTFX ptStart = Header->pfxStart;
 		POINTFX ptInit = ptStart;
 		while (dwRemine > 0)
 		{
 			std::vector<POINT> vecBezierPts;
 			std::vector<POINT> vecPolylinePts;
-			TTPOLYCURVE* pCurve = (TTPOLYCURVE*)Start;
+			TTPOLYCURVE* pCurve = (TTPOLYCURVE*)pStart;
 
 			POINT* pts = new POINT[pCurve->cpfx + 1];
 			pts[0] = GetPoint(ptStart, tm, ptOrigin);
@@ -120,7 +120,7 @@ void GetCurve(int nCount, unsigned char* pBuffer, POINT ptOrigin, TEXTMETRIC& tm
 			}
 
 			ptStart = pCurve->apfx[pCurve->cpfx - 1];
-			Start += sizeof(TTPOLYCURVE) + (pCurve->cpfx - 1) * sizeof(POINTFX);
+			pStart += sizeof(TTPOLYCURVE) + (pCurve->cpfx - 1) * sizeof(POINTFX);
 			dwRemine -= sizeof(TTPOLYCURVE) + (pCurve->cpfx - 1) * sizeof(POINTFX);
 		}
 		if ((ptStart.x.fract != ptInit.x.fract) ||
@@ -140,13 +140,13 @@ void GetCurve(int nCount, unsigned char* pBuffer, POINT ptOrigin, TEXTMETRIC& tm
 }
 
 
-void __stdcall SetText(HWND hwnd, int x, int y, const char* str, const char* szFont, int nHeight, bool bBold, bool bItalic, bool bUnderline)
+void __stdcall SetText(int x, int y, const char* str, const char* szFont, int nHeight, bool bBold, bool bItalic, bool bUnderline)
 {
 	g_vecBezierPts.clear();
 	g_vecPolylinePts.clear();
 	g_veclinePts.clear();
 
-	HDC hdc = GetDC(hwnd);
+	HDC hdc = GetDC(NULL);
 
 	HFONT hFont = CreateFontA(
 		nHeight,
@@ -198,7 +198,7 @@ void __stdcall SetText(HWND hwnd, int x, int y, const char* str, const char* szF
 	SelectObject(hdc, hOldFont);
 	DeleteObject(hFont);
 
-	ReleaseDC(hwnd, hdc);
+	ReleaseDC(NULL, hdc);
 }
 
 int __stdcall GetBezierCount()
