@@ -10,3 +10,5 @@ GetLinePointsCount
 GetBezierPoint
 GetPolylinePoint
 GetlinePoint
+GetPointsCount
+GetPoints

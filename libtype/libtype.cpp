@@ -4,10 +4,12 @@
 #include "stdafx.h"
 #include <string>
 #include <vector>
+#include "libtype.h"
 
 std::vector<std::vector<POINT>> g_vecBezierPts;
 std::vector<std::vector<POINT>> g_vecPolylinePts;
 std::vector<POINT> g_veclinePts;
+std::vector<POINT> g_vecPts;
 
 
 std::string WcsToMbs(const std::wstring& wcs) 
@@ -16,7 +18,7 @@ std::string WcsToMbs(const std::wstring& wcs)
 	char* mbs = new char[lengthOfMbs];
 	WideCharToMultiByte(CP_ACP, 0, wcs.c_str(), -1, mbs, lengthOfMbs, NULL, NULL);
 	std::string result = mbs;
-	delete mbs;
+	delete[] mbs;
 	mbs = NULL;
 	return result;
 }
@@ -27,7 +29,7 @@ std::wstring MbsToWcs(const std::string& mbs)
 	wchar_t* wcs = new wchar_t[lengthOfWcs];
 	MultiByteToWideChar(CP_ACP, 0, mbs.c_str(), -1, wcs, lengthOfWcs);
 	std::wstring result = wcs;
-	delete wcs;
+	delete[] wcs;
 	wcs = NULL;
 	return result;
 }
@@ -139,23 +141,54 @@ void GetCurve(int nCount, unsigned char* pBuffer, POINT ptOrigin, TEXTMETRIC& tm
 	}
 }
 
+void SetPoints(unsigned char* pBuffer, POINT ptOrigin, TEXTMETRIC& tm, GLYPHMETRICS& gm, int deltax, int deltay)
+{
+	int dx = gm.gmptGlyphOrigin.x + ptOrigin.x;
+	int dy = tm.tmAscent - gm.gmptGlyphOrigin.y + ptOrigin.y;
+	int nWidth = gm.gmBlackBoxX;
+	int nHeight = gm.gmBlackBoxY;
 
-void __stdcall SetText(int x, int y, const char* str, const char* szFont, int nHeight, bool bBold, bool bItalic, bool bUnderline)
+	DWORD64 dwOneLine = (nWidth / 8 + 3) / 4 * 4;
+	unsigned char* pData;
+	BOOL bBit;
+
+	if (deltax < 1) deltax = 1;
+	if (deltay < 1) deltay = 1;
+
+	for (int y = 0; y < nHeight; y = y + deltay)
+	{
+		for (int x = 0; x < nWidth; x = x + deltax)
+		{
+			pData = pBuffer + dwOneLine * y + x / 8;
+			bBit = *pData & (1 << 7 - (x % 8));
+			if (bBit)
+			{
+				POINT point;
+				point.x = x + dx;
+				point.y = y + dy;
+				g_vecPts.push_back(point);
+			}
+		}
+	}
+}
+
+
+void __stdcall SetText(int x, int y, const char* str, const char* szFont, int nHeight, bool bBold, bool bItalic, bool bPointType, int dx, int dy)
 {
 	g_vecBezierPts.clear();
 	g_vecPolylinePts.clear();
 	g_veclinePts.clear();
 
-	HDC hdc = GetDC(NULL);
+	HDC hdc = GetDC(GetDesktopWindow());
 
 	HFONT hFont = CreateFontA(
 		nHeight,
 		0,                                          //   字体的宽度  
 		0,                                          //  nEscapement 
 		0,                                          //  nOrientation   
-		(bBold ? FW_BOLD : FW_NORMAL),              //   nWeight   
+		(bBold ? FW_HEAVY : FW_LIGHT),              //   nWeight   
 		bItalic,                                    //   bItalic   
-		bUnderline,                                 //   bUnderline   
+		false,										//   bUnderline   
 		0,                                          //   cStrikeOut   
 		ANSI_CHARSET,                               //   nCharSet   
 		OUT_DEFAULT_PRECIS,						    //   nOutPrecision   
@@ -165,6 +198,7 @@ void __stdcall SetText(int x, int y, const char* str, const char* szFont, int nH
 		szFont);
 
 	HGDIOBJ hOldFont = SelectObject(hdc, (HGDIOBJ)hFont);
+
 	std::wstring wstr = MbsToWcs(str);
 	POINT ptOrigin = { x, y };
 
@@ -174,7 +208,14 @@ void __stdcall SetText(int x, int y, const char* str, const char* szFont, int nH
 	mat.eM11 = FixedFromDouble(1);
 	mat.eM12 = FixedFromDouble(0);
 	mat.eM21 = FixedFromDouble(0);
-	mat.eM22 = FixedFromDouble(-1);
+	if (bPointType)
+	{
+		mat.eM22 = FixedFromDouble(1);
+	}
+	else
+	{
+		mat.eM22 = FixedFromDouble(-1);
+	}
 
 	GetTextMetrics(hdc, &tm);
 
@@ -187,7 +228,14 @@ void __stdcall SetText(int x, int y, const char* str, const char* szFont, int nH
 		{
 			unsigned char* pBuf = new unsigned char[nCount];
 			GetGlyphOutline(hdc, wstr[i], GGO_BEZIER, &gm, nCount, pBuf, &mat);
-			GetCurve(nCount, pBuf, ptOrigin, tm);
+			if (bPointType)
+			{
+				SetPoints(pBuf, ptOrigin, tm, gm, dx, dy);
+			}
+			else
+			{
+				GetCurve(nCount, pBuf, ptOrigin, tm);
+			}
 			ptOrigin.x += gm.gmCellIncX;
 			ptOrigin.y += gm.gmCellIncY;
 			delete[] pBuf;
@@ -198,7 +246,7 @@ void __stdcall SetText(int x, int y, const char* str, const char* szFont, int nH
 	SelectObject(hdc, hOldFont);
 	DeleteObject(hFont);
 
-	ReleaseDC(NULL, hdc);
+	ReleaseDC(GetDesktopWindow(), hdc);
 }
 
 int __stdcall GetBezierCount()
@@ -275,4 +323,19 @@ void __stdcall GetlinePoint(int idx, int* x1, int* y1, int* x2, int* y2)
 	*y1 = g_veclinePts[idx * 2].y;
 	*x2 = g_veclinePts[idx * 2 + 1].x;
 	*y2 = g_veclinePts[idx * 2 + 1].y;
+}
+
+int __stdcall GetPointsCount()
+{
+	return g_vecPts.size();
+}
+
+void __stdcall GetPoints(int idx, int* x, int* y)
+{
+	if ((idx < 0) || (idx > g_vecPts.size() - 1))
+	{
+		return;
+	}
+	*x = g_vecPts[idx].x;
+	*y = g_vecPts[idx].y;
 }
