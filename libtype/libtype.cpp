@@ -178,6 +178,7 @@ void __stdcall SetText(int x, int y, const char* str, const char* szFont, int nH
 	g_vecBezierPts.clear();
 	g_vecPolylinePts.clear();
 	g_veclinePts.clear();
+	g_vecPts.clear();
 
 	HDC hdc = GetDC(GetDesktopWindow());
 
