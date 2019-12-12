@@ -205,6 +205,7 @@ void __stdcall SetText(int x, int y, const char* str, const char* szFont, int nH
 
 	TEXTMETRIC tm;
 	MAT2 mat;
+	UINT nFormat = 0;
 
 	mat.eM11 = FixedFromDouble(1);
 	mat.eM12 = FixedFromDouble(0);
@@ -212,10 +213,12 @@ void __stdcall SetText(int x, int y, const char* str, const char* szFont, int nH
 	if (bPointType)
 	{
 		mat.eM22 = FixedFromDouble(1);
+		nFormat = GGO_BITMAP;
 	}
 	else
 	{
 		mat.eM22 = FixedFromDouble(-1);
+		nFormat = GGO_BEZIER;
 	}
 
 	GetTextMetrics(hdc, &tm);
@@ -224,11 +227,11 @@ void __stdcall SetText(int x, int y, const char* str, const char* szFont, int nH
 	{
 		GLYPHMETRICS gm;
 
-		int nCount = GetGlyphOutline(hdc, wstr[i], GGO_BEZIER, &gm, 0, NULL, &mat);
+		int nCount = GetGlyphOutline(hdc, wstr[i], nFormat, &gm, 0, NULL, &mat);
 		if (nCount != -1)
 		{
 			unsigned char* pBuf = new unsigned char[nCount];
-			GetGlyphOutline(hdc, wstr[i], GGO_BEZIER, &gm, nCount, pBuf, &mat);
+			GetGlyphOutline(hdc, wstr[i], nFormat, &gm, nCount, pBuf, &mat);
 			if (bPointType)
 			{
 				SetPoints(pBuf, ptOrigin, tm, gm, dx, dy);
